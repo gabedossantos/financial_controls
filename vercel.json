@@ -1,0 +1,9 @@
+{
+  "installCommand": "npm ci",
+  "buildCommand": "next build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "env": {
+    "NODE_VERSION": "20.17.0"
+  }
+}

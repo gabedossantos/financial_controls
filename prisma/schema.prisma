@@ -1,0 +1,135 @@
+
+generator client {
+  provider      = "prisma-client-js"
+  // Keep common binary targets if you deploy to Alpine/ARM; adjust as needed.
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+  // Use default output within this package (removed hard‑coded absolute path)
+}
+
+datasource db {
+    provider = "postgresql"
+  // URL should include ?schema=enterprise_controls to isolate from other apps sharing the same DB
+  url      = env("DATABASE_URL")
+}
+
+model Department {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  code        String     @unique
+  description String?
+  headCount   Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  employees   Employee[]
+  
+  @@map("departments")
+}
+
+model Role {
+  id               String     @id @default(cuid())
+  name             String     @unique
+  code             String     @unique
+  description      String?
+  riskLevel        Int        @default(1) // 1-5 scale
+  conflictingRoles String[]   // Array of role codes that conflict with this role
+  permissions      String[]   // Array of permission strings
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  
+  employees        Employee[]
+  
+  @@map("roles")
+}
+
+model Employee {
+  id           String   @id @default(cuid())
+  employeeId   String   @unique
+  firstName    String
+  lastName     String
+  email        String   @unique
+  departmentId String
+  roleId       String
+  manager      String?
+  startDate    DateTime
+  isActive     Boolean  @default(true)
+  riskScore    Float    @default(1.0) // Calculated risk score 1-10
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  department   Department    @relation(fields: [departmentId], references: [id])
+  role         Role          @relation(fields: [roleId], references: [id])
+  transactions Transaction[]
+  violations   Violation[]
+  
+  @@map("employees")
+}
+
+model Transaction {
+  id             String   @id @default(cuid())
+  transactionId  String   @unique
+  employeeId     String
+  action         String   // e.g., "VENDOR_CREATE", "PAYMENT_APPROVE", "JOURNAL_ENTRY"
+  category       String   // e.g., "VENDOR_MANAGEMENT", "PAYMENT_PROCESSING"
+  amount         Float?   // Transaction amount if applicable
+  description    String
+  systemId       String?  // External system identifier
+  ipAddress      String?
+  timestamp      DateTime @default(now())
+  metadata       Json?    // Additional transaction data
+  
+  employee       Employee @relation(fields: [employeeId], references: [id])
+  
+  @@index([employeeId, timestamp])
+  @@index([action, timestamp])
+  @@map("transactions")
+}
+
+model Violation {
+  id               String   @id @default(cuid())
+  violationId      String   @unique
+  employeeId       String
+  violationType    String   // e.g., "SOD_TEMPORAL", "SOD_ROLE_CONFLICT", "PRIVILEGE_ESCALATION"
+  severity         String   // "LOW", "MEDIUM", "HIGH", "CRITICAL"
+  riskScore        Float    // 1-10 scale
+  description      String
+  detectionMethod  String   // e.g., "STATISTICAL_ANOMALY", "PATTERN_RECOGNITION"
+  status           String   @default("OPEN") // "OPEN", "INVESTIGATING", "RESOLVED", "FALSE_POSITIVE"
+  detectedAt       DateTime @default(now())
+  resolvedAt       DateTime?
+  resolutionNotes  String?
+  relatedTransactions String[] // Array of transaction IDs
+  
+  employee         Employee @relation(fields: [employeeId], references: [id])
+  
+  @@index([employeeId, detectedAt])
+  @@index([violationType, severity])
+  @@map("violations")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  entityType String  // "EMPLOYEE", "TRANSACTION", "VIOLATION"
+  entityId   String
+  action     String  // "CREATE", "UPDATE", "DELETE", "VIEW"
+  userId     String? // Admin user who performed action
+  changes    Json?   // Before/after values
+  timestamp  DateTime @default(now())
+  
+  @@index([entityType, entityId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+model SystemMetric {
+  id           String   @id @default(cuid())
+  metricName   String   
+  metricValue  Float
+  metricUnit   String?
+  category     String   // e.g., "COMPLIANCE", "RISK", "PERFORMANCE"
+  recordedAt   DateTime @default(now())
+  metadata     Json?
+  
+  @@index([metricName, recordedAt])
+  @@map("system_metrics")
+}
