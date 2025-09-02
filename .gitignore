@@ -13,7 +13,6 @@ coverage/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
 
 # OS / Editor noise
 .DS_Store
